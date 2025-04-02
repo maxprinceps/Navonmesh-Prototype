@@ -7,67 +7,413 @@ from threading import Thread
 import queue
 import json
 from datetime import datetime
+import streamlit.components.v1 as components
+
 
 st.set_page_config(page_title="Nyyai Astra - Legal AI", layout="wide", initial_sidebar_state="collapsed")
 
-# Initialize session state for voice recording
-if 'voice_recording' not in st.session_state:
-    st.session_state.voice_recording = False
-if 'voice_text' not in st.session_state:
-    st.session_state.voice_text = ""
 
 
-# Initialize session states
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
-if 'search_history' not in st.session_state:
-    st.session_state.search_history = []
-if 'bookmarks' not in st.session_state:
-    st.session_state.bookmarks = []
-if 'chat_messages' not in st.session_state:
-    st.session_state.chat_messages = []
+# Initialize session state variables if they are not already set
+if "show_main_content" not in st.session_state:
+    st.session_state.show_main_content = True  # Main content is visible by default
 
-def query_indian_kanoon(search_query):
-    # Placeholder function for API integration (modify when you get API access)
-    return f"Results for: {search_query}\n\n(Sample response from Indian Kanoon)"
+if "show_profile" not in st.session_state:
+    st.session_state.show_profile = False  # Profile page is hidden by default
 
-def handle_login():
-    st.subheader("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        # Add your login logic here
-        st.session_state.is_logged_in = True
-        st.session_state.username = username
-        st.rerun()
+# # Step 1: Initialize session state for profile modal
+# if "show_profile" not in st.session_state:
+#     st.session_state.show_profile = False  # Initially hidden
 
-def handle_signup():
-    st.subheader("Sign Up")
-    new_username = st.text_input("Username")
-    new_password = st.text_input("Password", type="password")
-    confirm_password = st.text_input("Confirm Password", type="password")
-    if st.button("Sign Up"):
-        if new_password == confirm_password:
-            # Add your signup logic here
-            st.success("Account created successfully! Please login.")
-        else:
-            st.error("Passwords don't match!")
+# # Step 2: Define a function to toggle profile modal
+# def toggle_profile():
+#     st.session_state.show_profile = not st.session_state.show_profile
 
-def show_profile_modal():
-    if not st.session_state.get('is_logged_in', False):
-        tab1, tab2 = st.tabs(["Login", "Sign Up"])
-        with tab1:
-            handle_login()
-        with tab2:
-            handle_signup()
-    else:
-        st.subheader(f"Welcome, {st.session_state.username}!")
-        if st.button("Logout"):
-            st.session_state.is_logged_in = False
-            st.session_state.username = None
-            st.rerun()
+# # Step 3: Create the Profile Button
+# if st.button("Profile"):
+#     toggle_profile()
 
-def handle_file_upload():
+# # Step 4: Show the login form (from login.html) only when profile is toggled ON
+# if st.session_state.show_profile:
+#     try:
+#         # Render the HTML content (login form) only once
+#         with open("login.html", "r") as f:
+#             login_html = f.read()
+
+#         components.html(login_html, height=1000, scrolling=True)
+#     except Exception as e:
+#         st.error(f"Error loading login form: {e}")
+
+
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+# Step 1: Initialize session state for profile modal
+if "show_profile" not in st.session_state:
+    st.session_state.show_profile = False  # Initially hidden
+
+# Step 2: Define a function to toggle profile modal
+def toggle_profile():
+    st.session_state.show_profile = not st.session_state.show_profile
+
+# Step 3: Create the Profile Button
+if st.button("Profile"):
+    toggle_profile()
+
+# Step 4: Load the login form in a responsive popup/modal
+if st.session_state.show_profile:
+    try:
+        # Read the HTML file
+        with open("login.html", "r", encoding="utf-8") as f:
+            login_html = f.read()
+
+        # Apply CSS styles in Streamlit for responsiveness
+        modal_style = """
+            <style>
+                .login-container {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 90%;
+                    max-width: 400px;
+                    height: auto;
+                    background-color: white;
+                    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+                    padding: 20px;
+                    border-radius: 10px;
+                    z-index: 1000;
+                }
+                .overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    z-index: 999;
+                }
+            </style>
+        """
+        
+        # Wrap the login form inside a modal
+        modal_html = f"""
+            {modal_style}
+            <div class="overlay" onclick="hideModal()"></div>
+            <div class="login-container">
+                {login_html}
+            </div>
+            <script>
+                function hideModal() {{
+                    const modal = document.querySelector('.overlay');
+                    if (modal) modal.style.display = 'none';
+                }}
+            </script>
+        """
+
+        # Render the modal inside Streamlit
+        components.html(modal_html, height=600, scrolling=False)
+
+    except Exception as e:
+        st.error(f"Error loading login form: {e}")
+
+#  def load_auth_css():
+#     return """
+#     <style>
+#     .auth-background {
+#         width: 430px;
+#         height: 520px;
+#         position: relative;
+#         margin: 0 auto;
+#     }
+    
+#     .auth-shape {
+#         height: 200px;
+#         width: 200px;
+#         position: absolute;
+#         border-radius: 50%;
+#     }
+    
+#     .auth-shape-1 {
+#         background: linear-gradient(#1845ad, #23a2f6);
+#         left: -80px;
+#         top: -80px;
+#     }
+    
+#     .auth-shape-2 {
+#         background: linear-gradient(to right, #ff512f, #f09819);
+#         right: -30px;
+#         bottom: -80px;
+#     }
+    
+#     .auth-form {
+#         height: 520px;
+#         width: 400px;
+#         background-color: rgba(255,255,255,0.13);
+#         position: relative;
+#         margin: 0 auto;
+#         border-radius: 10px;
+#         backdrop-filter: blur(10px);
+#         border: 2px solid rgba(255,255,255,0.1);
+#         box-shadow: 0 0 40px rgba(8,7,16,0.6);
+#         padding: 50px 35px;
+#     }
+    
+#     .auth-form * {
+#         font-family: 'Poppins',sans-serif;
+#         color: #ffffff;
+#         letter-spacing: 0.5px;
+#         outline: none;
+#         border: none;
+#     }
+    
+#     .auth-form h3 {
+#         font-size: 32px;
+#         font-weight: 500;
+#         line-height: 42px;
+#         text-align: center;
+#         margin-bottom: 30px;
+#     }
+    
+#     .auth-label {
+#         display: block;
+#         margin-top: 30px;
+#         font-size: 16px;
+#         font-weight: 500;
+#     }
+    
+#     .auth-input {
+#         display: block;
+#         height: 50px;
+#         width: 100%;
+#         background-color: rgba(255,255,255,0.07);
+#         border-radius: 3px;
+#         padding: 0 10px;
+#         margin-top: 8px;
+#         font-size: 14px;
+#         font-weight: 300;
+#         color: #e5e5e5;
+#     }
+    
+#     .auth-button {
+#         margin-top: 50px;
+#         width: 100%;
+#         background-color: #ffffff;
+#         color: #080710;
+#         padding: 15px 0;
+#         font-size: 18px;
+#         font-weight: 600;
+#         border-radius: 5px;
+#         cursor: pointer;
+#     }
+    
+#     .social-login {
+#         margin-top: 30px;
+#         display: flex;
+#         justify-content: center;
+#         gap: 25px;
+#     }
+    
+#     .social-btn {
+#         width: 150px;
+#         border-radius: 3px;
+#         padding: 5px 10px 10px 5px;
+#         background-color: rgba(255,255,255,0.27);
+#         color: #eaf0fb;
+#         text-align: center;
+#         cursor: pointer;
+#         transition: background-color 0.3s;
+#     }
+    
+#     .social-btn:hover {
+#         background-color: rgba(255,255,255,0.47);
+#     }
+    
+#     /* Dark overlay for the background */
+#     .auth-container {
+#         position: fixed;
+#         top: 0;
+#         left: 0;
+#         right: 0;
+#         bottom: 0;
+#         background-color: rgba(8,7,16,0.9);
+#         z-index: 1000;
+#         display: flex;
+#         align-items: center;
+#         justify-content: center;
+#     }
+#     </style>
+#     """
+
+# def show_profile_modal():
+#     st.markdown(load_auth_css(), unsafe_allow_html=True)
+    
+#     if not st.session_state.get('is_logged_in', False):
+#         st.markdown("""
+#             <div class="auth-container">
+#                 <div class="auth-background">
+#                     <div class="auth-shape auth-shape-1"></div>
+#                     <div class="auth-shape auth-shape-2"></div>
+#                     <div class="auth-form">
+#                         <h3>Login Here</h3>
+#                         <div>
+#                             <label class="auth-label">Username</label>
+#                             <input type="text" class="auth-input" placeholder="Email or Phone" id="username">
+#                         </div>
+#                         <div>
+#                             <label class="auth-label">Password</label>
+#                             <input type="password" class="auth-input" placeholder="Password" id="password">
+#                         </div>
+#                         <button class="auth-button">Log In</button>
+#                         <div class="social-login">
+#                             <div class="social-btn">
+#                                 <i class="fab fa-google"></i> Google
+#                             </div>
+#                             <div class="social-btn">
+#                                 <i class="fab fa-facebook"></i> Facebook
+#                             </div>
+#                         </div>
+#                     </div>
+#                 </div>
+#             </div>
+#         """, unsafe_allow_html=True)
+        
+#         # Handle form submission using Streamlit components (hidden)
+#         username = st.text_input("", key="username", label_visibility="collapsed")
+#         password = st.text_input("", type="password", key="password", label_visibility="collapsed")
+        
+#         # Add Font Awesome CDN
+#         st.markdown("""
+#             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+#             <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+#         """, unsafe_allow_html=True)
+        
+#         if st.button("Submit", key="auth_submit"):
+#             # Add your login logic here
+#             st.session_state.is_logged_in = True
+#             st.session_state.username = username
+#             st.rerun()
+#     else:
+#         st.markdown("""
+#             <div class="auth-container">
+#                 <div class="auth-form">
+#                     <h3>Welcome, {}!</h3>
+#                     <button class="auth-button">Logout</button>
+#                 </div>
+#             </div>
+#         """.format(st.session_state.username), unsafe_allow_html=True)
+        
+#         if st.button("Logout", key="logout"):
+#             st.session_state.is_logged_in = False
+#             st.session_state.username = None
+#             st.rerun()
+
+
+
+# def show_profile_modal():
+#     # st.markdown(load_auth_css(), unsafe_allow_html=True)  # Load CSS if needed
+    
+#     if not st.session_state.get('is_logged_in', False):
+#         # Embed the external login.html file
+#         with st.container():
+#             components.html(open("login.html", "r").read(), height=500, scrolling=True)
+
+#         # Capture user input with hidden fields (optional)
+#         username = st.text_input("", key="username", label_visibility="collapsed")
+#         password = st.text_input("", type="password", key="password", label_visibility="collapsed")
+
+#         # Submit Button (Optional)
+#         if st.button("Submit", key="auth_submit"):
+#             # Add authentication logic here
+#             st.session_state.is_logged_in = True
+#             st.session_state.username = username
+#             st.rerun()
+
+#     else:
+#         st.markdown(f"""
+#             <div class="auth-container">
+#                 <div class="auth-form">
+#                     <h3>Welcome, {st.session_state.username}!</h3>
+#                     <button class="auth-button" onclick="logout()">Logout</button>
+#                 </div>
+#             </div>
+#         """, unsafe_allow_html=True)
+
+#         if st.button("Logout", key="logout"):
+#             st.session_state.is_logged_in = False
+#             st.session_state.username = None
+#             st.rerun()
+
+
+# def show_profile_modal():
+#     # Ensure session state exists
+#     if "is_logged_in" not in st.session_state:
+#         st.session_state.is_logged_in = False
+
+#     if not st.session_state.is_logged_in:
+#         # Show the login form (external file)
+#         with st.container():
+#             st.markdown("<h3>Login</h3>", unsafe_allow_html=True)
+#             components.html(open("login.html", "r").read(), height=800, scrolling=True)  
+
+#         # # Hidden input fields for username and password
+#         # username = st.text_input("Username", key="username")
+#         # password = st.text_input("Password", type="password", key="password")
+
+#         # Submit button for login
+#         if st.button("Login"):  
+#             # Dummy authentication logic (Replace with actual logic)
+#             if username and password:
+#                 st.session_state.is_logged_in = True
+#                 st.session_state.username = username
+#                 st.session_state.show_profile = False  # Hide profile modal after login
+#                 st.rerun()
+#             else:
+#                 st.warning("Please enter both username and password.")
+#     else:
+#         # Show profile info after login
+#         st.markdown(f"""
+#             <div style="text-align: center;">
+#                 <h3>Welcome, {st.session_state.username}!</h3>
+#                 <button class="auth-button" onclick="logout()">Logout</button>
+#             </div>
+#         """, unsafe_allow_html=True)
+
+#         # Logout button
+#         if st.button("Logout"):  # Line 290 (approx)
+#             st.session_state.is_logged_in = False
+#             st.session_state.username = None
+#             st.session_state.show_profile = False  # Hide profile modal
+#             st.session_state.show_main_content = True  # Restore main content
+#             st.rerun()
+
+
+# # Show profile modal when "Profile" button is clicked
+# if "show_profile_modal" not in st.session_state:
+#     st.session_state.show_profile_modal = True
+
+# if st.button("👤 Profile"):
+#     st.session_state.show_profile_modal = True
+
+# if st.session_state.show_profile_modal:
+#     show_profile_modal()
+
+# Show either profile modal or main content
+if st.session_state.show_profile:
+ pass
+#     # show_profile_modal()
+#     pass
+# elif st.session_state.show_main_content:
+#     # # Your main window content (Ask Legal Query, etc.)
+#     # st.markdown("<h2>Ask Legal Query</h2>", unsafe_allow_html=True)  # Line 305 (approx)
+#     # user_query = st.text_area("Enter your legal query here:")
+#     # if st.button("Submit Query"):
+#     #     st.success("Your query has been submitted.")
+
+
+
+ def handle_file_upload():
     st.subheader("Upload Legal Documents")
     uploaded_files = st.file_uploader(
         "Choose your files", 
@@ -119,8 +465,8 @@ def show_voice_search_modal():
     
     with col1:
         st.markdown("""
-            <div style="padding: 20px; border-radius: 10px; background-color: #0000;">
-                <p> Speak your legal query 🎙️...</p>
+            <div style="padding: 20px; border-radius: 10px; background-color: #f0f2f6;">
+                <p>🎙️ Speak your legal query...</p>
             </div>
         """, unsafe_allow_html=True)
         
@@ -319,15 +665,17 @@ def show_search_interface():
     """Main search interface with autocomplete"""
     st.markdown(load_css(), unsafe_allow_html=True)
     
-    
     # Theme toggle
     col1, col2 = st.columns([6, 1])
-    with col2:
-        if st.toggle("🌗 Dark Mode", value=st.session_state.dark_mode):
-            st.session_state.dark_mode = True
-        else:
-            st.session_state.dark_mode = False
     
+    with col2:
+        if st.button("Dark Mode"):
+                
+            if st.toggle("🌗 Dark Mode", value=st.session_state.dark_mode):
+                st.session_state.dark_mode = True
+            else:
+                st.session_state.dark_mode = False
+        
     # Search container
     search_container = st.container()
     with search_container:
@@ -348,7 +696,7 @@ def show_search_interface():
                     st.rerun()
         
         # Search button with animation
-        if st.button("🔍 Search", key="search_button"):
+        if st.button("Search", key="search_button"):
             with st.spinner("Fetching results..."):
                 time.sleep(1)  # Simulate search delay
                 show_search_results(query)
@@ -420,27 +768,22 @@ def show_history():
                 st.session_state.bookmarks.append(item)
                 st.rerun()
 
-# ... (keep all imports and initial session state setup)
-
 def main():
-    # Initialize all session states in one place
+    # # Apply theme
+    # theme = "dark" if st.session_state.dark_mode else "light"
+    # st.markdown(f'<div data-theme="{theme}">', unsafe_allow_html=True)
+    
+    # Initialize session states
     if 'show_main_content' not in st.session_state:
         st.session_state.show_main_content = True
     if 'show_voice_modal' not in st.session_state:
         st.session_state.show_voice_modal = False
-    if 'show_profile' not in st.session_state:
-        st.session_state.show_profile = False
     if 'voice_text' not in st.session_state:
         st.session_state.voice_text = ""
     if 'temp_search_text' not in st.session_state:
         st.session_state.temp_search_text = ""
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = "home"
 
-    # Apply CSS only once
-    st.markdown(load_css(), unsafe_allow_html=True)
-    
-    # Sidebar
+    # Add sidebar
     with st.sidebar:
         st.title("Legal Resources")
         st.markdown("---")
@@ -456,25 +799,27 @@ def main():
             
         if st.button("History", use_container_width=True):
             st.session_state.current_page = "history"
-
-    # Profile button
-    col1, col2 = st.columns([6,1])
-    with col2:
-        if st.button("👤 Profile"):
-            st.session_state.show_profile = True
-            st.session_state.show_main_content = False
-            st.rerun()
-
-    # Show either profile modal or main content
-    if st.session_state.show_profile:
-        show_profile_modal()
-        if st.button("Close Profile"):
-            st.session_state.show_profile = False
-            st.session_state.show_main_content = True
-            st.rerun()
     
+    # Add profile button in top right
+    col_space, col_profile = st.columns([4, 1])
+    # with col_profile:
+    #     if st.button(" 👤 Profile ",key="duplicate"):
+    #         st.session_state.show_profile = True
+    #         st.session_state.show_main_content = False
+    #         st.rerun()
+    
+    # Show either profile modal or main content
+    if st.session_state.get('show_profile', False):
+        # with st.container():
+        #     show_profile_modal()
+        #     if st.button("Close"):
+        #         st.session_state.show_profile = False
+        #         st.session_state.show_main_content = True
+        #         st.rerun()
+        pass
+    
+    # Main content
     elif st.session_state.show_main_content:
-        # Logo and title
         st.markdown("""
             <div style="text-align: center;">
                 <h1>⚖️</h1>
@@ -483,39 +828,48 @@ def main():
             </div>
         """, unsafe_allow_html=True)
 
-        # Search container with voice button inside
+        # Create search container
         with st.container():
-            col1, col2 = st.columns([6,1])
-            with col1:
-                user_input = st.text_input(
-                    "",
-                    placeholder="Enter your legal query here...",
-                    value=st.session_state.get('temp_search_text', ''),
-                    key="search_input",
-                    label_visibility="collapsed"
-                )
+            # Use the temporary search text if available
+            initial_value = st.session_state.temp_search_text if st.session_state.temp_search_text else ""
+            if initial_value:
+                st.session_state.temp_search_text = ""  # Clear the temporary text
                 
-                # Clear temp search text after using it
-                if st.session_state.get('temp_search_text'):
-                    st.session_state.temp_search_text = ""
+            user_input = st.text_input(
+                label="Search",
+                placeholder="Enter your legal query here...",
+                key="search_input",
+                value=initial_value,
+                label_visibility="collapsed"
+            )
             
+            # Search buttons centered below the input
+            col1, col2, col3 = st.columns([4, 1, 1])
             with col2:
-                if st.button("🎤"):
+                if st.button("🔍 Search"):
+                    if user_input:
+                        search_results = search_legal_query(user_input)
+                        st.write(search_results)
+            with col3:
+                if st.button("🎤 Voice"):
                     st.session_state.show_voice_modal = True
                     st.rerun()
 
-        # Search button centered below
-        if st.button("🔍 Search", use_container_width=True):
-            if user_input:
-                show_search_results(user_input)
-
-        # Voice search modal
+        # Show voice search modal
         if st.session_state.show_voice_modal:
             show_voice_search_modal()
             if st.button("Close Voice Search"):
                 st.session_state.show_voice_modal = False
                 st.session_state.voice_recording = False
                 st.rerun()
+
+        # Show search results
+        if user_input:
+            st.markdown("---")
+            st.subheader("Search Results")
+            with st.spinner("Searching..."):
+                # Add your search results display logic here
+                st.write(f"Showing results for: {user_input}")
 
 if __name__ == "__main__":
     main()
