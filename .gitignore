@@ -1,0 +1,20 @@
+# Ignore system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Node.js dependencies (if applicable)
+node_modules/
+package-lock.json
+
+# Ignore VS Code settings
+.vscode/
+
+# Ignore log files
+*.log
