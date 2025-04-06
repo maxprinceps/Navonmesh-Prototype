@@ -11,6 +11,45 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+st.markdown("""
+    <style>
+        /* Custom styling for the text input */
+        div[data-baseweb="input"] input {
+            height: 100px !important;  /* Changed to 70px */
+            width: 33.33% !important;  /* One-third of screen width */
+            font-size: 16px !important;
+            padding: 10px 15px !important;
+            border-radius: 25px !important;
+            background-color: #2D2D2D !important;
+            color: white !important;
+            border: 1px solid #3D3D3D !important;
+        }
+        
+        /* Container styling */
+        div[data-baseweb="input"] {
+            width: 33.33% !important;  /* One-third of screen width */
+            margin: 10px auto !important;  /* Added auto for horizontal centering */
+            background-color: #2D2D2D !important;
+            border-radius: 25px !important;
+        }
+        
+        /* Placeholder text color */
+        div[data-baseweb="input"] input::placeholder {
+            color: #808080 !important;
+        }
+        
+        /* Make sure styles are applied */
+        .stTextInput > div > div > input {
+            height: 100px !important;  /* Changed to 70px */
+            font-size: 16px !important;
+            background-color: #2D2D2D !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
+
+
 # Initialize session states
 def init_session_states():
     defaults = {
@@ -171,7 +210,7 @@ def main():
             )
             st.session_state.temp_search_text = ""
             
-            col1, col2, col3 = st.columns([4, 1, 1])
+            col1, col2, col3, col4 = st.columns([4, 1, 1, 1])
             with col2:
                 if st.button("🔍 Search") and search_query:
                     show_search_results(search_query)
@@ -179,6 +218,21 @@ def main():
                 if st.button("🎤 Voice"):
                     st.session_state.show_voice_modal = True
                     st.rerun()
+            with col4:
+                if st.button("📎 Upload"):
+                    st.session_state.show_main_content = False
+                    st.session_state.show_profile = False
+                    st.session_state.show_upload = True
+                    st.rerun()
+
+    # Handle File Upload Section when show_upload is True
+    if st.session_state.get('show_upload', False):
+        handle_file_upload()
+        # Add a back button to return to main content
+        if st.button("← Back"):
+            st.session_state.show_upload = False
+            st.session_state.show_main_content = True
+            st.rerun()
 
 if __name__ == "__main__":
     main()
