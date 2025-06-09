@@ -1,33 +1,50 @@
-import streamlit as st
-import requests
+import os
+from azure.ai.inference import ChatCompletionsClient
+from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
+from azure.core.credentials import AzureKeyCredential
+from dotenv import load_dotenv
 
-def query_indian_kanoon(search_query):
-    # Placeholder function for API integration (modify when you get API access)
-    return f"Results for: {search_query}\n\n(Sample response from Indian Kanoon)"
+# Load .env file
+load_dotenv()
 
-def main():
-    st.set_page_config(page_title="Nyyai Astra - Legal AI", layout="centered")
-    
-    # Centered Layout
-    st.markdown("""
-        <div style="text-align: center;">
-            <h1>⚖️</h1>
-            <h1>Nyyai Astra</h1>
-            <h3>An AI-powered assistant for Indian legal queries.</h3>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Centered Search Box and Button
-    user_query = st.text_input("", placeholder="Ask your legal question...", key="query")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("Search", key="search_button", help="Click to search", use_container_width=True):
-            if user_query.strip():
-                response = query_indian_kanoon(user_query)
-                st.text_area("Response:", response, height=200)
-            else:
-                st.warning("Please enter a valid query.")
+endpoint = "https://models.inference.ai.azure.com"
+model_name = "mistral-small-2503"
+token = os.getenv("GITHUB_TOKEN")
 
-if __name__ == "__main__":
-    main()
+# Setup client
+client = ChatCompletionsClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(token),
+)
+
+# Initial system message
+messages = [SystemMessage("You are a helpful assistant.")]
+
+print("🤖 Nyyai Astra: Hello! Ask me anything. Type 'exit' to stop.")
+
+# Loop for real-time chat
+while True:
+    user_input = input("👤 You: ")
+    
+    if user_input.lower() in ["exit", "quit", "bye"]:
+        print("🤖 Nyyai Astra: Bye! Take care 🐧")
+        break
+
+    messages.append(UserMessage(user_input))
+
+    response = client.complete(
+        messages=messages,
+        temperature=1.0,
+        top_p=1.0,
+        max_tokens=1000,
+        model=model_name
+    )
+
+    reply = response.choices[0].message.content
+    print(f"🤖 Nyyai Astra: {reply}")
+
+    messages.append(AssistantMessage(reply))  # Add bot reply to history
+
+    import json
+
+

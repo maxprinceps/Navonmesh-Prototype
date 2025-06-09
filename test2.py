@@ -1,4 +1,4 @@
-import streamlit as st
+import legal_assistant as st
 import requests
 from pathlib import Path
 import speech_recognition as sr

@@ -1,4 +1,4 @@
-import streamlit as st
+import legal_assistant as st
 import requests
 from pathlib import Path
 import speech_recognition as sr
@@ -46,7 +46,7 @@ if "show_profile" not in st.session_state:
 
 
 
-import streamlit as st
+import legal_assistant as st
 import streamlit.components.v1 as components
 
 # Step 1: Initialize session state for profile modal

@@ -1,4 +1,4 @@
-import legal_assistant as st
+import streamlit as st
 import streamlit.components.v1 as components
 from pathlib import Path
 import time
@@ -6,12 +6,231 @@ from datetime import datetime
 import requests
 import os
 from dotenv import load_dotenv
+from azure.ai.inference import ChatCompletionsClient
+from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
+from azure.core.credentials import AzureKeyCredential
 
-# Load environment variables
+
+
+
+import PyPDF2
+import io
+from PIL import Image
+import pytesseract
+import fitz 
+
+# environment variables
 load_dotenv()
-github_token = os.getenv("GITHUB_TOKEN")
+token = os.getenv("GITHUB_TOKEN")
+endpoint = "https://models.inference.ai.azure.com"
+model_name = "mistral-small-2503"
 
-# Example function to use the GitHub API
+client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(token))
+
+
+def extract_text_from_pdf(pdf_file):
+    """Extract text from a PDF file"""
+    try:
+        pdf_bytes = io.BytesIO(pdf_file.read())
+        pdf_reader = PyPDF2.PdfReader(pdf_bytes)
+        text = ""
+        for page_num in range(len(pdf_reader.pages)):
+            text += pdf_reader.pages[page_num].extract_text()
+        return text
+    except Exception as e:
+        return f"Error extracting text from PDF: {str(e)}"
+
+def extract_text_from_image(image_file):
+    """Extract text from an image using OCR"""
+    try:
+        image = Image.open(io.BytesIO(image_file.read()))
+        text = pytesseract.image_to_string(image)
+        return text
+    except Exception as e:
+        return f"Error extracting text from image: {str(e)}"
+
+def analyze_document_content(text, document_type="legal"):
+    """Send the document text to the AI model for analysis"""
+    try:
+        # .................prompt based on document type ..................
+        if document_type == "contract":
+            system_prompt = "You are a legal expert specializing in contract analysis. Analyze the following contract document and identify: 1) Missing essential clauses, 2) Must-have elements that are present or absent, 3) Potentially harmful clauses that could be disadvantageous, 4) Any vague language that should be clarified, and 5) Overall assessment of the document's completeness and fairness."
+        elif document_type == "government":
+            system_prompt = "You are a legal expert specializing in government documents. Analyze the following document and identify: 1) Key provisions and their implications, 2) Any requirements or deadlines to be aware of, 3) Rights and obligations established, 4) Potential areas of concern, and 5) Overall assessment of how this document might affect the reader."
+        else:
+            system_prompt = "You are a legal expert. Analyze the following document and identify: 1) The type of document, 2) Key provisions and their implications, 3) Any missing elements that should be present, 4) Potentially problematic clauses or terms, and 5) Overall assessment of the document's completeness and fairness."
+        
+        messages = [
+            SystemMessage(system_prompt),
+            UserMessage(f"Here is the document text to analyze:\n\n{text}")
+        ]
+
+        response = client.complete(
+            messages=messages,
+            temperature=0.7,
+            top_p=1.0,
+            max_tokens=2000,  
+            model=model_name
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"❌ Error analyzing document: {str(e)}"
+
+
+
+#################################### the handle_file_upload function
+def handle_file_upload():
+    st.markdown("<h2 style='text-align: center;'>Document Analysis</h2>", unsafe_allow_html=True)
+    
+    # Add document type selection
+    doc_type = st.radio(
+        "Select document type for better analysis:",
+        ["General Legal Document", "Contract", "Government Document"],
+        horizontal=True
+    )
+    
+    document_type_map = {
+        "General Legal Document": "legal",
+        "Contract": "contract",
+        "Government Document": "government"
+    }
+    
+    ################## the three columns for different file types
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("##### Documents")
+        docs = st.file_uploader("Upload Documents", 
+            type=['pdf', 'doc', 'docx', 'txt'],
+            accept_multiple_files=True,
+            key='doc_uploader'
+        )
+        if docs:
+            for doc in docs:
+                st.success(f"Uploaded: {doc.name}")
+                
+                # Add analyze button for each document
+                if st.button(f"Analyze {doc.name}", key=f"analyze_{doc.name}"):
+                    with st.spinner(f"Analyzing {doc.name}..."):
+                        if doc.name.lower().endswith('.pdf'):
+                            text = extract_text_from_pdf(doc)
+                        elif doc.name.lower().endswith('.txt'):
+                            text = doc.getvalue().decode('utf-8')
+                        else:
+                            text = "Document type not supported for direct text extraction."
+                        
+                        if text and len(text) > 100:  
+                            analysis = analyze_document_content(text, document_type_map[doc_type])
+                            
+                            
+                            with st.expander(f"Analysis of {doc.name}", expanded=True):
+                                st.markdown("### Document Analysis")
+                                st.markdown(analysis)
+                                
+                                
+                                analysis_text = f"Analysis of {doc.name}\n\n{analysis}"
+                                st.download_button(
+                                    label="Download Analysis",
+                                    data=analysis_text,
+                                    file_name=f"analysis_{doc.name}.txt",
+                                    mime="text/plain"
+                                )
+                        else:
+                            st.error(f"Could not extract sufficient text from {doc.name}")
+    
+    with col2:
+        st.markdown("##### Images")
+        images = st.file_uploader("Upload Images",
+            type=['png', 'jpg', 'jpeg'],
+            accept_multiple_files=True,
+            key='image_uploader'
+        )
+        if images:
+            for img in images:
+                st.success(f"Uploaded: {img.name}")
+                
+                
+                image = Image.open(img)
+                st.image(image, caption=img.name, width=300)
+                
+               
+                if st.button(f"Analyze {img.name}", key=f"analyze_{img.name}"):
+                    with st.spinner(f"Analyzing {img.name}..."):
+                        text = extract_text_from_image(img)
+                        
+                        if text and len(text) > 50:  
+                            analysis = analyze_document_content(text, document_type_map[doc_type])
+                            
+                            
+                            with st.expander(f"Analysis of {img.name}", expanded=True):
+                                st.markdown("### Document Analysis")
+                                st.markdown("#### Extracted Text")
+                                st.text(text)
+                                st.markdown("#### Analysis")
+                                st.markdown(analysis)
+                        else:
+                            st.error(f"Could not extract sufficient text from {img.name}")
+    
+    with col3:
+        st.markdown("##### Other Files")
+        other_files = st.file_uploader("Upload Other Files",
+            type=['csv', 'xlsx', 'zip', 'rar'],
+            accept_multiple_files=True,
+            key='other_uploader'
+        )
+        if other_files:
+            for file in other_files:
+                st.success(f"Uploaded: {file.name}")
+                st.info("Analysis not available for this file type.")
+
+    #######################################styling for upload secton ##################
+    st.markdown("""
+        <style>
+        .uploadedFile {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+        }
+        .stButton>button {
+            width: 100%;
+        }
+        .upload-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    
+    st.markdown("---")
+
+
+    st.markdown("""
+        #### Document Analysis Instructions:
+        1. Select the document type for more accurate analysis
+        2. Upload your document (PDF, image, or text file)
+        3. Click "Analyze" to get AI insights about:
+           - Missing essential clauses
+           - Must-have elements
+           - Potentially harmful provisions
+           - Vague language that needs clarification
+           - Overall assessment of completeness and fairness
+    """)
+
+
+load_dotenv()
+token = os.getenv("GITHUB_TOKEN")
+endpoint = "https://models.inference.ai.azure.com"
+model_name = "mistral-small-2503"
+
+client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(token))
+
+
+
 def fetch_legal_data_from_github(query):
     """Fetch legal data from a GitHub repository using the API token"""
     headers = {
@@ -19,8 +238,7 @@ def fetch_legal_data_from_github(query):
         "Accept": "application/vnd.github.v3+json"
     }
     
-    # Example: Search for legal documents in a repository
-    # You'll need to customize this URL for your specific use case
+
     url = f"https://api.github.com/search/code?q={query}+in:file+repo:your-username/your-legal-repo"
     
     response = requests.get(url, headers=headers)
@@ -30,14 +248,14 @@ def fetch_legal_data_from_github(query):
     else:
         return {"error": f"API request failed with status code {response.status_code}"}
 
-# Page configuration
+
 st.set_page_config(
     page_title="Nyyai Astra - Legal AI", 
     layout="wide", 
     initial_sidebar_state="collapsed"
 )
 
-# Add this CSS at the beginning of your main function or after st.set_page_config
+
 st.markdown("""
     <style>
         /* Custom styling for the text input */
@@ -142,76 +360,76 @@ st.markdown("""
 
 
 
-def handle_file_upload():
-    st.markdown("<h2 style='text-align: center;'>File Upload</h2>", unsafe_allow_html=True)
+# def handle_file_upload():
+#     st.markdown("<h2 style='text-align: center;'>File Upload</h2>", unsafe_allow_html=True)
     
-    # Create three columns for different file types
-    col1, col2, col3 = st.columns(3)
+#     # Create three columns for different file types
+#     col1, col2, col3 = st.columns(3)
     
-    with col1:
-        st.markdown("##### Documents")
-        docs = st.file_uploader("Upload Documents", 
-            type=['pdf', 'doc', 'docx', 'txt'],
-            accept_multiple_files=True,
-            key='doc_uploader'
-        )
-        if docs:
-            for doc in docs:
-                st.success(f"Uploaded: {doc.name}")
+#     with col1:
+#         st.markdown("##### Documents")
+#         docs = st.file_uploader("Upload Documents", 
+#             type=['pdf', 'doc', 'docx', 'txt'],
+#             accept_multiple_files=True,
+#             key='doc_uploader'
+#         )
+#         if docs:
+#             for doc in docs:
+#                 st.success(f"Uploaded: {doc.name}")
     
-    with col2:
-        st.markdown("##### Images")
-        images = st.file_uploader("Upload Images",
-            type=['png', 'jpg', 'jpeg', 'gif'],
-            accept_multiple_files=True,
-            key='image_uploader'
-        )
-        if images:
-            for img in images:
-                st.success(f"Uploaded: {img.name}")
+#     with col2:
+#         st.markdown("##### Images")
+#         images = st.file_uploader("Upload Images",
+#             type=['png', 'jpg', 'jpeg', 'gif'],
+#             accept_multiple_files=True,
+#             key='image_uploader'
+#         )
+#         if images:
+#             for img in images:
+#                 st.success(f"Uploaded: {img.name}")
     
-    with col3:
-        st.markdown("##### Other Files")
-        other_files = st.file_uploader("Upload Other Files",
-            type=['csv', 'xlsx', 'zip', 'rar'],
-            accept_multiple_files=True,
-            key='other_uploader'
-        )
-        if other_files:
-            for file in other_files:
-                st.success(f"Uploaded: {file.name}")
+#     with col3:
+#         st.markdown("##### Other Files")
+#         other_files = st.file_uploader("Upload Other Files",
+#             type=['csv', 'xlsx', 'zip', 'rar'],
+#             accept_multiple_files=True,
+#             key='other_uploader'
+#         )
+#         if other_files:
+#             for file in other_files:
+#                 st.success(f"Uploaded: {file.name}")
 
-    # Add some styling for the upload sections
-    st.markdown("""
-        <style>
-        .uploadedFile {
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            padding: 10px;
-            margin: 5px 0;
-            background-color: #f8f9fa;
-        }
-        .stButton>button {
-            width: 100%;
-        }
-        .upload-header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+#     # Add some styling for the upload sections
+#     st.markdown("""
+#         <style>
+#         .uploadedFile {
+#             border: 1px solid #ccc;
+#             border-radius: 5px;
+#             padding: 10px;
+#             margin: 5px 0;
+#             background-color: #f8f9fa;
+#         }
+#         .stButton>button {
+#             width: 100%;
+#         }
+#         .upload-header {
+#             text-align: center;
+#             margin-bottom: 20px;
+#         }
+#         </style>
+#     """, unsafe_allow_html=True)
 
-    # Add a divider
-    st.markdown("---")
+#     # Add a divider
+#     st.markdown("---")
 
-    # Display upload instructions
-    st.markdown("""
-        #### Upload Instructions:
-        1. Select the appropriate category for your file
-        2. Click 'Browse files' or drag and drop files
-        3. Multiple files can be uploaded at once
-        4. Maximum file size: 200MB per file
-    """)
+#     # Display upload instructions
+#     st.markdown("""
+#         #### Upload Instructions:
+#         1. Select the appropriate category for your file
+#         2. Click 'Browse files' or drag and drop files
+#         3. Multiple files can be uploaded at once
+#         4. Maximum file size: 200MB per file
+#     """)
 
 # Initialize session states
 def init_session_states():
@@ -286,20 +504,45 @@ def handle_profile_modal():
 
 # Search functionality
 # In your search_legal_query function
+# def search_legal_query(query):
+#     """Handle search operations"""
+#     with st.spinner('Searching...'):
+#         # Use the GitHub API to fetch data
+#         results = fetch_legal_data_from_github(query)
+        
+#         # Process the results
+#         if "error" in results:
+#             return f"Error: {results['error']}"
+        
+#         # Process and format the results
+#         formatted_results = process_github_results(results)
+        
+#         return formatted_results
+
+#replacing the above search_lrgal query by thi schatgpt's definition
+
 def search_legal_query(query):
-    """Handle search operations"""
-    with st.spinner('Searching...'):
-        # Use the GitHub API to fetch data
-        results = fetch_legal_data_from_github(query)
-        
-        # Process the results
-        if "error" in results:
-            return f"Error: {results['error']}"
-        
-        # Process and format the results
-        formatted_results = process_github_results(results)
-        
-        return formatted_results
+    """Send the query to the Mistral Small model and get a response"""
+    try:
+        # Start conversation with a system message
+        messages = [
+            SystemMessage("You are a helpful legal assistant trained in Indian law."),
+            UserMessage(query)
+        ]
+
+        response = client.complete(
+            messages=messages,
+            temperature=0.7,
+            top_p=1.0,
+            max_tokens=1000,
+            model=model_name
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"❌ Error from AI model: {str(e)}"
+
 
 # Helper function to process GitHub API results
 def process_github_results(results):
@@ -327,7 +570,8 @@ def show_search_results(query):
         
         # Simulate AI response (will be replaced with actual API call)
         # This is where you'll integrate your AI model API later
-        response = f"This is a simulated response to your query: '{query}'. This will be replaced with the actual AI model response when integrated."
+        response = search_legal_query(query)
+
         
         # Add AI response to chat history
         st.session_state.search_history.append({
@@ -389,7 +633,7 @@ def show_search_results(query):
 def main():
     init_session_states()
     
-    # Define handle_key_press function
+    ############### Defined handle_key_press function
     def handle_key_press():
         current_query = st.session_state.get('search_textarea_active', '')
         if current_query and current_query.endswith('\n'):
@@ -553,20 +797,18 @@ def main():
                 </style>
             """, unsafe_allow_html=True)
 
-            # Results area - chat-like container
-            with results_area:
-                st.markdown('<div class="results-section">', unsafe_allow_html=True)
-                messages_to_display = list(st.session_state.search_history)
-                if st.session_state.get('current_query'):
-                    show_search_results(st.session_state.current_query)
-                    # Reset current query after displaying results
-                    st.session_state.current_query = ""
-                # Add this to push content to the bottom of the container
-                if st.session_state.search_history:
-                    st.markdown('<div style="flex-grow: 1;"></div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            # Results area######
+            if st.session_state.get("current_query"):
 
-            # Fixed bottom search interface
+
+                with results_area:
+                    st.markdown('<div class="results-section">', unsafe_allow_html=True)
+                    show_search_results(st.session_state.current_query)
+                    st.session_state.current_query = ""
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+
+            # ###############bottom search interface
             st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
             left_space, center_col, right_space = st.columns([1, 4, 1])
             with center_col:
@@ -575,12 +817,12 @@ def main():
                     placeholder="Ask anything about Indian law...",
                     value="",
                     label_visibility="collapsed",
-                    height=70,  # Changed to match welcome screen height
+                    height=70,  
                     key="search_textarea_active",
                     on_change=handle_key_press
                 )
                 
-                # Buttons - keeping the same layout and labels as welcome screen
+                # Buttons
                 col1, col2, col3 = st.columns([1, 1, 1])
                 with col1:
                     if st.button("🔍 Search", key="search_active", use_container_width=True):
@@ -600,7 +842,7 @@ def main():
     # Handle File Upload Section when show_upload is True
     if st.session_state.get('show_upload', False):
         handle_file_upload()
-        # Add a back button to return to main content
+        ##### a back button to return to main content
         if st.button("← Back"):
             st.session_state.show_upload = False
             st.session_state.show_main_content = True
@@ -608,3 +850,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+if not token:
+    st.error("❌ GitHub Token not found! Check your .env file.")
+
+
+
+
+
+
+
+######################### full working code as of nowwwwww.

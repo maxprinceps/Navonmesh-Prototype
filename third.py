@@ -3,13 +3,6 @@ import streamlit.components.v1 as components
 from pathlib import Path
 import time
 from datetime import datetime
-import requests
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-token = os.getenv("GITHUB_TOKEN")
 
 # Page configuration
 st.set_page_config(
@@ -305,180 +298,47 @@ def show_search_results(query):
 
 # Main application
 def main():
-    init_session_states()
-    
-    # Sidebar
+    st.set_page_config(page_title="Nyyai Astra", layout="wide")
+
+    apply_custom_css()
+    initialize_session_state()
+
     with st.sidebar:
-        st.title("Legal Resources")
+        st.title("🔍 Nyyai Astra")
         st.markdown("---")
-        
-        sidebar_options = [
-            "Indian Constitution",
-            "Today's Supreme Court Hearings",
-            "Amendments",
-            "History"
-        ]
-        
-        for option in sidebar_options:
-            if st.button(option, use_container_width=True):
-                st.session_state.current_page = option.lower().replace(" ", "_")
-    
-    # Profile Button
-    _, col_profile = st.columns([4, 1])
-    with col_profile:
-        st.markdown('<div class="profile-button">', unsafe_allow_html=True)
-        if st.button("👤 Profile"):
-            st.session_state.show_profile = not st.session_state.show_profile
-            st.session_state.show_main_content = not st.session_state.show_main_content
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Handle Profile Modal
-    if st.session_state.show_profile:
-        handle_profile_modal()
-    
-    # Main Content
-    elif st.session_state.show_main_content:
-        # Create containers for different parts
-        header_area = st.container()
-        results_area = st.container()
+        show_user_profile()
+        st.markdown("---")
+        show_search_history()
+
+    is_search_active = st.session_state.is_search_active
+
+    with st.container():
+        # Split layout into sections
+        header_area = st.empty()
+        results_area = st.empty()
         search_area = st.container()
 
-        def handle_key_press():
-            current_query = st.session_state.search_textarea
-            if current_query and current_query.endswith('\n'):
-                st.session_state.temp_search_text = current_query.rstrip()
-                st.session_state.is_search_active = True
-                st.session_state.current_query = current_query.rstrip()
-
-        # Check if search is active
-        is_search_active = st.session_state.get('is_search_active', False)
-
+        # When there's no search yet, show welcome text
         if not is_search_active:
-            # Initial welcome screen
             with header_area:
-                st.markdown("""
-                    <div style="text-align: center;">
-                        <h1>⚖️</h1>
-                        <h1>Nyyai Astra</h1>
-                        <h3>An AI-powered assistant for Indian legal queries.</h3>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown("<h1 style='text-align: center;'>🧠 Nyyai Astra</h1>", unsafe_allow_html=True)
+                st.markdown("<p style='text-align: center;'>Your AI Legal Assistant</p>", unsafe_allow_html=True)
 
-            # Center the search box in initial view
-            with search_area:
-                left_space, center_col, right_space = st.columns([1, 4, 1])
-                with center_col:
-                    search_query = st.text_area(
-                        label="Search",
-                        placeholder="Ask anything",
-                        value=st.session_state.temp_search_text,
-                        label_visibility="collapsed",
-                        height=70,
-                        key="search_textarea",
-                        on_change=handle_key_press
-                    )
-                    
-                    # Buttons
-                    col1, col2, col3 = st.columns([1, 1, 1])
-                    with col1:
-                        if st.button("🔍 Search", key="search_initial", use_container_width=True):
-                            if search_query:
-                                st.session_state.is_search_active = True
-                                st.session_state.current_query = search_query
-                    with col2:
-                        if st.button("📎 Upload", key="upload_initial", use_container_width=True):
-                            st.session_state.show_upload = True
-                            st.session_state.show_main_content = False
-                            st.rerun()
-                    with col3:
-                        if st.button("🎤 Voice", key="voice_initial", use_container_width=True):
-                            st.session_state.show_voice_modal = True
-
-        else:
-            # Search active layout
-            # Add custom CSS for fixed bottom search bar
-            st.markdown("""
-                <style>
-                    /* Main content area */
-                    .main-content {
-                        margin-bottom: 180px;  /* Space for fixed search bar */
-                    }
-                    
-                    /* Fixed search bar at bottom */
-                    .fixed-bottom {
-                        position: fixed;
-                        bottom: 0;
-                        left: 0;
-                        right: 0;
-                        background-color: #0E1117;
-                        padding: 20px;
-                        border-top: 1px solid #333;
-                        z-index: 1000;
-                    }
-                    
-                    /* Ensure the search bar spans full width */
-                    .fixed-bottom .stTextArea {
-                        width: 100%;
-                    }
-                    
-                    /* Rainbow border for search box */
-                    .fixed-bottom .stTextArea textarea:focus {
-                        border-color: transparent;
-                        box-shadow: 0 0 0 1px transparent;
-                        background-image: linear-gradient(#0E1117, #0E1117), 
-                                        linear-gradient(90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080);
-                        background-origin: border-box;
-                        background-clip: padding-box, border-box;
-                        animation: rainbow 3s linear infinite;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-
-            # Results area
-            with results_area:
-                st.markdown('<div class="results-section">', unsafe_allow_html=True)
-                if st.session_state.get('current_query'):
-                    show_search_results(st.session_state.current_query)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Fixed bottom search interface
+        # Search input at the bottom
+        with search_area:
             st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
-            left_space, center_col, right_space = st.columns([1, 4, 1])
-            with center_col:
-                search_query = st.text_area(
-                    label="Search",
-                    placeholder="Ask anything",
-                    value=st.session_state.temp_search_text,
-                    label_visibility="collapsed",
-                    height=70,
-                    key="search_textarea_active",
-                    on_change=handle_key_press
-                )
-                
-                # Buttons
-                col1, col2, col3 = st.columns([1, 1, 1])
-                with col1:
-                    if st.button("🔍 Search", key="search_active", use_container_width=True):
-                        if search_query:
-                            st.session_state.current_query = search_query
-                with col2:
-                    if st.button("📎 Upload", key="upload_active", use_container_width=True):
-                        st.session_state.show_upload = True
-                        st.session_state.show_main_content = False
-                        st.rerun()
-                with col3:
-                    if st.button("🎤 Voice", key="voice_active", use_container_width=True):
-                        st.session_state.show_voice_modal = True
+            search_input = st.text_area(
+                "Ask your legal question",
+                key="search_textarea",
+                on_change=handle_key_press,
+                placeholder="Eg. What is Article 21?"
+            )
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # Handle File Upload Section when show_upload is True
-    if st.session_state.get('show_upload', False):
-        handle_file_upload()
-        # Add a back button to return to main content
-        if st.button("← Back"):
-            st.session_state.show_upload = False
-            st.session_state.show_main_content = True
-            st.rerun()
-
-if __name__ == "__main__":
-    main()
+        # When search is active, display results
+        if st.session_state.is_search_active:
+            with results_area:
+                st.markdown('<div class="results-section">', unsafe_allow_html=True)
+                response = search_legal_query(st.session_state.temp_search_text)
+                show_search_results(response)
+                st.markdown('</div>', unsafe_allow_html=True)
